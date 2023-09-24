@@ -1,5 +1,5 @@
 /**
- *    Copyright 2009-2015 the original author or authors.
+ *    Copyright 2009-2021 the original author or authors.
  *
  *    Licensed under the Apache License, Version 2.0 (the "License");
  *    you may not use this file except in compliance with the License.
@@ -52,8 +52,19 @@ public class DefaultSqlSessionFactory implements SqlSessionFactory {
     return openSessionFromDataSource(configuration.getDefaultExecutorType(), null, autoCommit);
   }
 
+  /**
+   * 方法实现说明:从数据源中开启一个session
+   * @author:xsls
+   * @param execType：执行器类型
+   * @return: sqlSession
+   * @exception:
+   * @date:2019/9/8 21:38
+   */
   @Override
   public SqlSession openSession(ExecutorType execType) {
+    /**
+     * 从数据源开启一个session
+     */
     return openSessionFromDataSource(execType, null, false);
   }
 
@@ -66,6 +77,7 @@ public class DefaultSqlSessionFactory implements SqlSessionFactory {
   public SqlSession openSession(ExecutorType execType, TransactionIsolationLevel level) {
     return openSessionFromDataSource(execType, level, false);
   }
+
 
   @Override
   public SqlSession openSession(ExecutorType execType, boolean autoCommit) {
@@ -87,13 +99,36 @@ public class DefaultSqlSessionFactory implements SqlSessionFactory {
     return configuration;
   }
 
+  /**
+   * 方法实现说明:从session中开启一个数据源
+   * @author:xsls
+   * @param execType:执行器类型
+   * @param level:隔离级别
+   * @return:SqlSession
+   * @exception:
+   * @date:2019/9/9 13:38
+   */
   private SqlSession openSessionFromDataSource(ExecutorType execType, TransactionIsolationLevel level, boolean autoCommit) {
     Transaction tx = null;
     try {
+      /**
+       * 获取环境变量
+       */
       final Environment environment = configuration.getEnvironment();
+      /**
+       * 获取事务工厂
+       */
       final TransactionFactory transactionFactory = getTransactionFactoryFromEnvironment(environment);
       tx = transactionFactory.newTransaction(environment.getDataSource(), level, autoCommit);
+      /**
+       * 创建一个sql执行器对象
+       * 一般情况下 若我们的mybaits的全局配置文件的cacheEnabled默认为ture就返回
+       * 一个cacheExecutor,若关闭的话返回的就是一个SimpleExecutor
+       */
       final Executor executor = configuration.newExecutor(tx, execType);
+      /**
+       * 创建返回一个DefaultSqlSession对象返回
+       */
       return new DefaultSqlSession(configuration, executor, autoCommit);
     } catch (Exception e) {
       closeTransaction(tx); // may have fetched a connection so lets call close()
@@ -112,7 +147,7 @@ public class DefaultSqlSessionFactory implements SqlSessionFactory {
         // Failover to true, as most poor drivers
         // or databases won't support transactions
         autoCommit = true;
-      }      
+      }
       final Environment environment = configuration.getEnvironment();
       final TransactionFactory transactionFactory = getTransactionFactoryFromEnvironment(environment);
       final Transaction tx = transactionFactory.newTransaction(connection);

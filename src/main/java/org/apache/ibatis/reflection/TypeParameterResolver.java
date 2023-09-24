@@ -1,5 +1,5 @@
 /**
- *    Copyright 2009-2016 the original author or authors.
+ *    Copyright 2009-2021 the original author or authors.
  *
  *    Licensed under the Apache License, Version 2.0 (the "License");
  *    you may not use this file except in compliance with the License.
@@ -44,9 +44,33 @@ public class TypeParameterResolver {
    * @return The return type of the method as {@link Type}. If it has type parameters in the declaration,<br>
    *         they will be resolved to the actual runtime {@link Type}s.
    */
+  /**
+   * 方法实现说明:解析我们的返回值的类型
+   * Type是Java语言中所有类型的父接口，包括
+        raw types(原始类型，包括类，枚举，接口，注解，数组（但不包括泛型数组）),
+        parameterized types（参数化类型，如Set<String>,Map<String,String>,Class<?>）,
+        array types(泛型数组和参数类型数组，如T[],List<String>[]),
+        type variables(类型变量，如T，K，V) and
+        primitive types（基本类型，如boolean,char,byte,short,int,long,float,double
+   * @author:xsls
+   * @param method:调用方法对象
+   * @param srcType:方法所主的原生接口
+   * @return:Type
+   * @exception:
+   * @date:2019/9/8 13:57
+   */
   public static Type resolveReturnType(Method method, Type srcType) {
+    /**
+     * 返回值的类型
+     */
     Type returnType = method.getGenericReturnType();
+    /**
+     * 接口类型
+     */
     Class<?> declaringClass = method.getDeclaringClass();
+    /**
+     * 解析我们的返回值
+     */
     return resolveType(returnType, srcType, declaringClass);
   }
 
@@ -64,12 +88,31 @@ public class TypeParameterResolver {
     return result;
   }
 
+  /**
+   * 方法实现说明:解析返回值类型
+   * Type是Java语言中所有类型的父接口，包括
+        raw types(原始类型，包括类，枚举，接口，注解，数组（但不包括泛型数组）),
+        parameterized types（参数化类型，如Set<String>,Map<String,String>,Class<?>）,
+        array types(泛型数组和参数类型数组，如T[],List<String>[]),
+        type variables(类型变量，如T，K，V) and
+        primitive types（基本类型，如boolean,char,byte,short,int,long,float,double
+   * @author:xsls
+   * @param type
+   * @return:
+   * @exception:
+   * @date:2019/9/8 15:21
+   */
   private static Type resolveType(Type type, Type srcType, Class<?> declaringClass) {
+    /**
+     * 是不是类型变量
+     */
     if (type instanceof TypeVariable) {
       return resolveTypeVar((TypeVariable<?>) type, srcType, declaringClass);
     } else if (type instanceof ParameterizedType) {
+      //参数化类型
       return resolveParameterizedType((ParameterizedType) type, srcType, declaringClass);
     } else if (type instanceof GenericArrayType) {
+      //泛型数组和参数类型数组
       return resolveGenericArrayType((GenericArrayType) type, srcType, declaringClass);
     } else {
       return type;
@@ -134,8 +177,8 @@ public class TypeParameterResolver {
   }
 
   private static Type resolveTypeVar(TypeVariable<?> typeVar, Type srcType, Class<?> declaringClass) {
-    Type result = null;
-    Class<?> clazz = null;
+    Type result;
+    Class<?> clazz;
     if (srcType instanceof Class) {
       clazz = (Class<?>) srcType;
     } else if (srcType instanceof ParameterizedType) {
@@ -147,7 +190,7 @@ public class TypeParameterResolver {
 
     if (clazz == declaringClass) {
       Type[] bounds = typeVar.getBounds();
-      if(bounds.length > 0) {
+      if (bounds.length > 0) {
         return bounds[0];
       }
       return Object.class;
@@ -170,39 +213,48 @@ public class TypeParameterResolver {
   }
 
   private static Type scanSuperTypes(TypeVariable<?> typeVar, Type srcType, Class<?> declaringClass, Class<?> clazz, Type superclass) {
-    Type result = null;
     if (superclass instanceof ParameterizedType) {
       ParameterizedType parentAsType = (ParameterizedType) superclass;
       Class<?> parentAsClass = (Class<?>) parentAsType.getRawType();
+      TypeVariable<?>[] parentTypeVars = parentAsClass.getTypeParameters();
+      if (srcType instanceof ParameterizedType) {
+        parentAsType = translateParentTypeVars((ParameterizedType) srcType, clazz, parentAsType);
+      }
       if (declaringClass == parentAsClass) {
-        Type[] typeArgs = parentAsType.getActualTypeArguments();
-        TypeVariable<?>[] declaredTypeVars = declaringClass.getTypeParameters();
-        for (int i = 0; i < declaredTypeVars.length; i++) {
-          if (declaredTypeVars[i] == typeVar) {
-            if (typeArgs[i] instanceof TypeVariable) {
-              TypeVariable<?>[] typeParams = clazz.getTypeParameters();
-              for (int j = 0; j < typeParams.length; j++) {
-                if (typeParams[j] == typeArgs[i]) {
-                  if (srcType instanceof ParameterizedType) {
-                    result = ((ParameterizedType) srcType).getActualTypeArguments()[j];
-                  }
-                  break;
-                }
-              }
-            } else {
-              result = typeArgs[i];
-            }
+        for (int i = 0; i < parentTypeVars.length; i++) {
+          if (typeVar == parentTypeVars[i]) {
+            return parentAsType.getActualTypeArguments()[i];
           }
         }
-      } else if (declaringClass.isAssignableFrom(parentAsClass)) {
-        result = resolveTypeVar(typeVar, parentAsType, declaringClass);
       }
-    } else if (superclass instanceof Class) {
-      if (declaringClass.isAssignableFrom((Class<?>) superclass)) {
-        result = resolveTypeVar(typeVar, superclass, declaringClass);
+      if (declaringClass.isAssignableFrom(parentAsClass)) {
+        return resolveTypeVar(typeVar, parentAsType, declaringClass);
+      }
+    } else if (superclass instanceof Class && declaringClass.isAssignableFrom((Class<?>) superclass)) {
+      return resolveTypeVar(typeVar, superclass, declaringClass);
+    }
+    return null;
+  }
+
+  private static ParameterizedType translateParentTypeVars(ParameterizedType srcType, Class<?> srcClass, ParameterizedType parentType) {
+    Type[] parentTypeArgs = parentType.getActualTypeArguments();
+    Type[] srcTypeArgs = srcType.getActualTypeArguments();
+    TypeVariable<?>[] srcTypeVars = srcClass.getTypeParameters();
+    Type[] newParentArgs = new Type[parentTypeArgs.length];
+    boolean noChange = true;
+    for (int i = 0; i < parentTypeArgs.length; i++) {
+      if (parentTypeArgs[i] instanceof TypeVariable) {
+        for (int j = 0; j < srcTypeVars.length; j++) {
+          if (srcTypeVars[j] == parentTypeArgs[i]) {
+            noChange = false;
+            newParentArgs[i] = srcTypeArgs[j];
+          }
+        }
+      } else {
+        newParentArgs[i] = parentTypeArgs[i];
       }
     }
-    return result;
+    return noChange ? parentType : new ParameterizedTypeImpl((Class<?>)parentType.getRawType(), null, newParentArgs);
   }
 
   private TypeParameterResolver() {
@@ -249,7 +301,7 @@ public class TypeParameterResolver {
 
     private Type[] upperBounds;
 
-    private WildcardTypeImpl(Type[] lowerBounds, Type[] upperBounds) {
+    WildcardTypeImpl(Type[] lowerBounds, Type[] upperBounds) {
       super();
       this.lowerBounds = lowerBounds;
       this.upperBounds = upperBounds;
@@ -269,7 +321,7 @@ public class TypeParameterResolver {
   static class GenericArrayTypeImpl implements GenericArrayType {
     private Type genericComponentType;
 
-    private GenericArrayTypeImpl(Type genericComponentType) {
+    GenericArrayTypeImpl(Type genericComponentType) {
       super();
       this.genericComponentType = genericComponentType;
     }

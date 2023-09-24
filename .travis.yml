@@ -1,38 +1,21 @@
 language: java
-dist: trusty
-sudo: false
-
-addons:
-  apt:
-    packages:
-      - openjdk-6-jdk
-
-# for gh-1388 (workaround for supporting test using OpenJDK 6)
-matrix:
-  include:
-    - env: JDK='OpenJDK 6'
-      before_install:
-        - echo "MAVEN_OPTS='-Dlicense.skip=true'" > ~/.mavenrc
-        - TRAVIS_JDK_VERSION=openjdk6
 
 jdk:
-  - oraclejdk9
+  - openjdk-ea
+  - openjdk13
+  - openjdk12
+  - openjdk11
   - oraclejdk8
-  - openjdk8
-  - openjdk7
+
+services:
+  - docker
+
+cache:
+  directories:
+    - $HOME/.m2
 
 before_install:
   - echo "MAVEN_OPTS='-Dlicense.skip=true'" > ~/.mavenrc
-
-install:
-  # Compile sources with Java 1.8
-  - jdk_switcher use oraclejdk8
-  - chmod -R 777 ./travis/install.sh
-  - ./travis/install.sh
-  # Switch back to the original JDK to run the tests
-  - jdk_switcher use ${TRAVIS_JDK_VERSION}
-
-script: ./mvnw test -Dmaven.surefire.excludeGroups= -B
 
 after_success:
   - chmod -R 777 ./travis/after_success.sh

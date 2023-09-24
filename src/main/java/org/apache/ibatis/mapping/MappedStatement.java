@@ -1,5 +1,5 @@
 /**
- *    Copyright 2009-2017 the original author or authors.
+ *    Copyright 2009-2021 the original author or authors.
  *
  *    Licensed under the Apache License, Version 2.0 (the "License");
  *    you may not use this file except in compliance with the License.
@@ -33,26 +33,26 @@ import org.apache.ibatis.session.Configuration;
  */
 public final class MappedStatement {
 
-  private String resource;
-  private Configuration configuration;
-  private String id;
+  private String resource;//mapper配置文件名，如：UserMapper.xml
+  private Configuration configuration;//全局配置
+  private String id;//节点的id属性加命名空间,如：com.lucky.mybatis.dao.UserMapper.selectByExample
   private Integer fetchSize;
-  private Integer timeout;
-  private StatementType statementType;
-  private ResultSetType resultSetType;
-  private SqlSource sqlSource;
-  private Cache cache;
+  private Integer timeout;//超时时间
+  private StatementType statementType;//操作SQL的对象的类型
+  private ResultSetType resultSetType;//结果类型
+  private SqlSource sqlSource;//sql语句
+  private Cache cache;//缓存
   private ParameterMap parameterMap;
   private List<ResultMap> resultMaps;
   private boolean flushCacheRequired;
-  private boolean useCache;
-  private boolean resultOrdered;
-  private SqlCommandType sqlCommandType;
+  private boolean useCache;//是否使用缓存，默认为true
+  private boolean resultOrdered;//结果是否排序
+  private SqlCommandType sqlCommandType;//sql语句的类型，如select、update、delete、insert
   private KeyGenerator keyGenerator;
   private String[] keyProperties;
   private String[] keyColumns;
   private boolean hasNestedResultMaps;
-  private String databaseId;
+  private String databaseId;//数据库ID
   private Log statementLog;
   private LanguageDriver lang;
   private String[] resultSets;
@@ -69,8 +69,9 @@ public final class MappedStatement {
       mappedStatement.id = id;
       mappedStatement.sqlSource = sqlSource;
       mappedStatement.statementType = StatementType.PREPARED;
-      mappedStatement.parameterMap = new ParameterMap.Builder(configuration, "defaultParameterMap", null, new ArrayList<ParameterMapping>()).build();
-      mappedStatement.resultMaps = new ArrayList<ResultMap>();
+      mappedStatement.resultSetType = ResultSetType.DEFAULT;
+      mappedStatement.parameterMap = new ParameterMap.Builder(configuration, "defaultParameterMap", null, new ArrayList<>()).build();
+      mappedStatement.resultMaps = new ArrayList<>();
       mappedStatement.sqlCommandType = sqlCommandType;
       mappedStatement.keyGenerator = configuration.isUseGeneratedKeys() && SqlCommandType.INSERT.equals(sqlCommandType) ? Jdbc3KeyGenerator.INSTANCE : NoKeyGenerator.INSTANCE;
       String logId = id;
@@ -119,7 +120,7 @@ public final class MappedStatement {
     }
 
     public Builder resultSetType(ResultSetType resultSetType) {
-      mappedStatement.resultSetType = resultSetType;
+      mappedStatement.resultSetType = resultSetType == null ? ResultSetType.DEFAULT : resultSetType;
       return this;
     }
 
@@ -173,18 +174,20 @@ public final class MappedStatement {
       return this;
     }
 
-    /** @deprecated Use {@link #resultSets} */
+    /**
+     * @deprecated Use {@link #resultSets}
+     */
     @Deprecated
     public Builder resulSets(String resultSet) {
       mappedStatement.resultSets = delimitedStringToArray(resultSet);
       return this;
     }
-    
+
     public MappedStatement build() {
       assert mappedStatement.configuration != null;
       assert mappedStatement.id != null;
       assert mappedStatement.sqlSource != null;
-      assert mappedStatement.lang != null;
+       assert mappedStatement.lang != null;
       mappedStatement.resultMaps = Collections.unmodifiableList(mappedStatement.resultMaps);
       return mappedStatement;
     }
@@ -282,12 +285,14 @@ public final class MappedStatement {
     return resultSets;
   }
 
-  /** @deprecated Use {@link #getResultSets()} */
+  /**
+   * @deprecated Use {@link #getResultSets()}
+   */
   @Deprecated
   public String[] getResulSets() {
     return resultSets;
   }
-  
+
   public BoundSql getBoundSql(Object parameterObject) {
     BoundSql boundSql = sqlSource.getBoundSql(parameterObject);
     List<ParameterMapping> parameterMappings = boundSql.getParameterMappings();

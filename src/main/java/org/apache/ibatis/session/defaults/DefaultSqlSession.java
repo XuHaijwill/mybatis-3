@@ -1,5 +1,5 @@
 /**
- *    Copyright 2009-2017 the original author or authors.
+ *    Copyright 2009-2021 the original author or authors.
  *
  *    Licensed under the Apache License, Version 2.0 (the "License");
  *    you may not use this file except in compliance with the License.
@@ -40,7 +40,6 @@ import org.apache.ibatis.session.RowBounds;
 import org.apache.ibatis.session.SqlSession;
 
 /**
- *
  * The default implementation for {@link SqlSession}.
  * Note that this class is not Thread-Safe.
  *
@@ -68,16 +67,33 @@ public class DefaultSqlSession implements SqlSession {
 
   @Override
   public <T> T selectOne(String statement) {
-    return this.<T>selectOne(statement, null);
+    return this.selectOne(statement, null);
   }
 
+  /**
+   * 方法实现说明:查询我们当个对象
+   * @author:xsls
+   * @param statement:我们的statementId(com.tuling.mapper.EmployeeMapper.findOne)
+   * @param parameter:调用时候的参数
+   * @return: T 返回结果
+   * @exception:
+   * @date:2019/9/9 20:26
+   */
   @Override
   public <T> T selectOne(String statement, Object parameter) {
     // Popular vote was to return null on 0 results and throw exception on too many.
-    List<T> list = this.<T>selectList(statement, parameter);
+    /**
+     * 这里selectOne调用也是调用selectList方法
+     */
+    List<T> list = this.selectList(statement, parameter);
+    //若查询出来有且有一个一个对象，直接返回要给
     if (list.size() == 1) {
       return list.get(0);
     } else if (list.size() > 1) {
+      /**
+       * 查询的有多个,那么久抛出我们熟悉的异常
+       * Expected one result (or null) to be returned by selectOne(), but found: " + list.size()
+       */
       throw new TooManyResultsException("Expected one result (or null) to be returned by selectOne(), but found: " + list.size());
     } else {
       return null;
@@ -97,9 +113,9 @@ public class DefaultSqlSession implements SqlSession {
   @Override
   public <K, V> Map<K, V> selectMap(String statement, Object parameter, String mapKey, RowBounds rowBounds) {
     final List<? extends V> list = selectList(statement, parameter, rowBounds);
-    final DefaultMapResultHandler<K, V> mapResultHandler = new DefaultMapResultHandler<K, V>(mapKey,
-        configuration.getObjectFactory(), configuration.getObjectWrapperFactory(), configuration.getReflectorFactory());
-    final DefaultResultContext<V> context = new DefaultResultContext<V>();
+    final DefaultMapResultHandler<K, V> mapResultHandler = new DefaultMapResultHandler<>(mapKey,
+            configuration.getObjectFactory(), configuration.getObjectWrapperFactory(), configuration.getReflectorFactory());
+    final DefaultResultContext<V> context = new DefaultResultContext<>();
     for (V o : list) {
       context.nextResultObject(o);
       mapResultHandler.handleResult(context);
@@ -136,15 +152,42 @@ public class DefaultSqlSession implements SqlSession {
     return this.selectList(statement, null);
   }
 
+  /**
+   * 查询我们的集合
+   * @param statement 用于去匹配我们Configuration对象中的mappedStatment对象
+   * @param parameter 调用的参数对象
+   * @param <E>
+   * @return
+   */
   @Override
   public <E> List<E> selectList(String statement, Object parameter) {
     return this.selectList(statement, parameter, RowBounds.DEFAULT);
   }
 
+  /**
+   * 方法实现说明
+   * @author:xsls
+   * @param statement: statementId
+   * @param parameter:参数对象
+   * @param rowBounds :mybiats的逻辑分页对象
+   * @return:
+   * @exception:
+   * @date:2019/9/9 20:33
+   */
   @Override
   public <E> List<E> selectList(String statement, Object parameter, RowBounds rowBounds) {
     try {
+      /**
+       * 第一步：通过我们的statement去我们的全局配置类中获取MappedStatement
+       *
+       * CRUD
+       */
       MappedStatement ms = configuration.getMappedStatement(statement);
+      /**
+       * 通过执行器去执行我们的sql对象
+       * 第一步:包装我们的集合类参数
+       * 第二步:一般情况下是executor为cacheExetory对象
+       */
       return executor.query(ms, wrapCollection(parameter), rowBounds, Executor.NO_RESULT_HANDLER);
     } catch (Exception e) {
       throw ExceptionFactory.wrapException("Error querying database.  Cause: " + e, e);
@@ -289,7 +332,7 @@ public class DefaultSqlSession implements SqlSession {
 
   @Override
   public <T> T getMapper(Class<T> type) {
-    return configuration.<T>getMapper(type, this);
+    return configuration.getMapper(type, this);
   }
 
   @Override
@@ -308,7 +351,7 @@ public class DefaultSqlSession implements SqlSession {
 
   private <T> void registerCursor(Cursor<T> cursor) {
     if (cursorList == null) {
-      cursorList = new ArrayList<Cursor<?>>();
+      cursorList = new ArrayList<>();
     }
     cursorList.add(cursor);
   }
@@ -317,16 +360,28 @@ public class DefaultSqlSession implements SqlSession {
     return (!autoCommit && dirty) || force;
   }
 
+  /**
+   * 方法实现说明:包装我们集合类的参数
+   * @author:xsls
+   * @param object:参数对象
+   * @return:Object：包装后的对象
+   * @exception:
+   * @date:2019/9/9 20:36
+   */
   private Object wrapCollection(final Object object) {
+    //若我们的参数类型是Collection
     if (object instanceof Collection) {
-      StrictMap<Object> map = new StrictMap<Object>();
+      StrictMap<Object> map = new StrictMap<>();
+      //把他key为collection存放到map中
       map.put("collection", object);
+      //若我们参数类型是list类型  把key为list作为集合存放到map中
       if (object instanceof List) {
         map.put("list", object);
       }
       return map;
     } else if (object != null && object.getClass().isArray()) {
-      StrictMap<Object> map = new StrictMap<Object>();
+      //若是数组，存放key为array的map中
+      StrictMap<Object> map = new StrictMap<>();
       map.put("array", object);
       return map;
     }

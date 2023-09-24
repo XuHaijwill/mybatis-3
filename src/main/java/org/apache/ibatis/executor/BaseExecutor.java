@@ -1,5 +1,5 @@
 /**
- *    Copyright 2009-2018 the original author or authors.
+ *    Copyright 2009-2021 the original author or authors.
  *
  *    Licensed under the Apache License, Version 2.0 (the "License");
  *    you may not use this file except in compliance with the License.
@@ -51,20 +51,32 @@ public abstract class BaseExecutor implements Executor {
 
   private static final Log log = LogFactory.getLog(BaseExecutor.class);
 
+  //事务对象
   protected Transaction transaction;
+  //执行权包装对象
   protected Executor wrapper;
 
+  //延时加载队列
   protected ConcurrentLinkedQueue<DeferredLoad> deferredLoads;
+  //一级缓存
   protected PerpetualCache localCache;
+  //本地输出类型的参数的缓存
   protected PerpetualCache localOutputParameterCache;
+  //mysql全局配置文件
   protected Configuration configuration;
-
+  //记录嵌套查询的层级
   protected int queryStack;
+  //是否关闭
   private boolean closed;
 
+  /**
+   * 创建一个基础的执行器对象 BaseExecutor对象
+   * @param configuration
+   * @param transaction
+   */
   protected BaseExecutor(Configuration configuration, Transaction transaction) {
     this.transaction = transaction;
-    this.deferredLoads = new ConcurrentLinkedQueue<DeferredLoad>();
+    this.deferredLoads = new ConcurrentLinkedQueue<>();
     this.localCache = new PerpetualCache("LocalCache");
     this.localOutputParameterCache = new PerpetualCache("LocalOutputParameterCache");
     this.closed = false;
@@ -129,30 +141,47 @@ public abstract class BaseExecutor implements Executor {
     return doFlushStatements(isRollBack);
   }
 
+  /**
+   * 执行查询语句
+   * @param ms 我们的执行sql包装对象（MappedStatement）
+   * @param parameter:参数
+   * @param rowBounds 逻辑分页参数
+   * @param resultHandler:返回结果处理器
+   * @param <E>
+   * @return
+   * @throws SQLException
+   */
   @Override
   public <E> List<E> query(MappedStatement ms, Object parameter, RowBounds rowBounds, ResultHandler resultHandler) throws SQLException {
+    //获取sql
     BoundSql boundSql = ms.getBoundSql(parameter);
     CacheKey key = createCacheKey(ms, parameter, rowBounds, boundSql);
     return query(ms, parameter, rowBounds, resultHandler, key, boundSql);
- }
+  }
 
   @SuppressWarnings("unchecked")
   @Override
   public <E> List<E> query(MappedStatement ms, Object parameter, RowBounds rowBounds, ResultHandler resultHandler, CacheKey key, BoundSql boundSql) throws SQLException {
     ErrorContext.instance().resource(ms.getResource()).activity("executing a query").object(ms.getId());
+    //已经关闭，则抛出 ExecutorException 异常
     if (closed) {
       throw new ExecutorException("Executor was closed.");
     }
+    // <2> 清空本地缓存，如果 queryStack 为零，并且要求清空本地缓存。
     if (queryStack == 0 && ms.isFlushCacheRequired()) {
       clearLocalCache();
     }
     List<E> list;
     try {
+      // <4.1> 从一级缓存中，获取查询结果
       queryStack++;
       list = resultHandler == null ? (List<E>) localCache.getObject(key) : null;
+      // <4.2> 获取到，则进行处理
       if (list != null) {
+        //处理存过的
         handleLocallyCachedOutputParameters(ms, key, parameter, boundSql);
       } else {
+        // 获得不到，则从数据库中查询
         list = queryFromDatabase(ms, parameter, rowBounds, resultHandler, key, boundSql);
       }
     } finally {
@@ -228,6 +257,12 @@ public abstract class BaseExecutor implements Executor {
     return cacheKey;
   }
 
+  /**
+   * 判断是否被缓存
+   * @param ms
+   * @param key
+   * @return
+   */
   @Override
   public boolean isCached(MappedStatement ms, CacheKey key) {
     return localCache.getObject(key) != null;
@@ -259,6 +294,9 @@ public abstract class BaseExecutor implements Executor {
     }
   }
 
+  /**
+   * 清楚本地一级缓存
+   */
   @Override
   public void clearLocalCache() {
     if (!closed) {
@@ -345,7 +383,7 @@ public abstract class BaseExecutor implements Executor {
   public void setExecutorWrapper(Executor wrapper) {
     this.wrapper = wrapper;
   }
-  
+
   private static class DeferredLoad {
 
     private final MetaObject resultObject;
@@ -377,7 +415,7 @@ public abstract class BaseExecutor implements Executor {
     }
 
     public void load() {
-      @SuppressWarnings( "unchecked" )
+      @SuppressWarnings("unchecked")
       // we suppose we get back a List
       List<Object> list = (List<Object>) localCache.getObject(key);
       Object value = resultExtractor.extractObjectFromList(list, targetType);

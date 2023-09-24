@@ -1,5 +1,5 @@
 /**
- *    Copyright 2009-2017 the original author or authors.
+ *    Copyright 2009-2021 the original author or authors.
  *
  *    Licensed under the Apache License, Version 2.0 (the "License");
  *    you may not use this file except in compliance with the License.
@@ -17,12 +17,11 @@ package org.apache.ibatis.cache.decorators;
 
 import java.util.Deque;
 import java.util.LinkedList;
-import java.util.concurrent.locks.ReadWriteLock;
 
 import org.apache.ibatis.cache.Cache;
 
 /**
- * FIFO (first in, first out) cache decorator
+ * FIFO (first in, first out) cache decorator.
  *
  * @author Clinton Begin
  */
@@ -34,7 +33,8 @@ public class FifoCache implements Cache {
 
   public FifoCache(Cache delegate) {
     this.delegate = delegate;
-    this.keyList = new LinkedList<Object>();
+    // 先进先出的的实现通过LinkedList
+    this.keyList = new LinkedList<>();
     this.size = 1024;
   }
 
@@ -73,12 +73,7 @@ public class FifoCache implements Cache {
     delegate.clear();
     keyList.clear();
   }
-
-  @Override
-  public ReadWriteLock getReadWriteLock() {
-    return null;
-  }
-
+  // 加到最后， 移除最前面
   private void cycleKeyList(Object key) {
     keyList.addLast(key);
     if (keyList.size() > size) {

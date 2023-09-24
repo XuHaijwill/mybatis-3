@@ -1,5 +1,5 @@
 /**
- *    Copyright 2009-2017 the original author or authors.
+ *    Copyright 2009-2021 the original author or authors.
  *
  *    Licensed under the Apache License, Version 2.0 (the "License");
  *    you may not use this file except in compliance with the License.
@@ -13,7 +13,6 @@
  *    See the License for the specific language governing permissions and
  *    limitations under the License.
  */
-
 package org.apache.ibatis.reflection;
 
 import java.lang.annotation.Annotation;
@@ -51,10 +50,19 @@ public class ParamNameResolver {
   private boolean hasParamAnnotation;
 
   public ParamNameResolver(Configuration config, Method method) {
+    /**
+     * 解析我们的参数的类型
+     */
     final Class<?>[] paramTypes = method.getParameterTypes();
+    /**
+     * 解析我们方法上的@Param注解
+     */
     final Annotation[][] paramAnnotations = method.getParameterAnnotations();
-    final SortedMap<Integer, String> map = new TreeMap<Integer, String>();
+    final SortedMap<Integer, String> map = new TreeMap<>();
     int paramCount = paramAnnotations.length;
+    /**
+     * 解析我们标注了@Param注解
+     */
     // get names from @Param annotations
     for (int paramIndex = 0; paramIndex < paramCount; paramIndex++) {
       if (isSpecialParameter(paramTypes[paramIndex])) {
@@ -82,14 +90,15 @@ public class ParamNameResolver {
       }
       map.put(paramIndex, name);
     }
+    /**
+     *Dept findDeptByIdAndName(@Param("id") Integer id,@Param("name") String name);
+     * 变为Map   {0,id},{1,name}
+     */
     names = Collections.unmodifiableSortedMap(map);
   }
 
   private String getActualParamName(Method method, int paramIndex) {
-    if (Jdk.parameterExists) {
-      return ParamNameUtil.getParamNames(method).get(paramIndex);
-    }
-    return null;
+    return ParamNameUtil.getParamNames(method).get(paramIndex);
   }
 
   private static boolean isSpecialParameter(Class<?> clazz) {
@@ -105,27 +114,43 @@ public class ParamNameResolver {
 
   /**
    * <p>
-   * A single non-special parameter is returned without a name.<br />
-   * Multiple parameters are named using the naming rule.<br />
+   * A single non-special parameter is returned without a name.
+   * Multiple parameters are named using the naming rule.
    * In addition to the default names, this method also adds the generic names (param1, param2,
    * ...).
    * </p>
    */
   public Object getNamedParams(Object[] args) {
+    //获取参数的个数
+    /**
+     * names的数据结构为map
+     * ({key="0",value="id"},{key="1",value="name"})
+     */
     final int paramCount = names.size();
+    //若参数的个数为空或者个数为0直接返回
     if (args == null || paramCount == 0) {
       return null;
     } else if (!hasParamAnnotation && paramCount == 1) {
+      /**
+       * 若有且只有一个参数 而且没有标注了@Param指定方法方法名称
+       *
+       */
       return args[names.firstKey()];
     } else {
-      final Map<String, Object> param = new ParamMap<Object>();
+      final Map<String, Object> param = new ParamMap<>();
       int i = 0;
+      /**
+       * 循坏我们所有的参数的个数
+       */
       for (Map.Entry<Integer, String> entry : names.entrySet()) {
+        //把key为id,value为1加入到param中
         param.put(entry.getValue(), args[entry.getKey()]);
         // add generic param names (param1, param2, ...)
+        //加入通用的参数：名称为param+0,1,2,3......
         final String genericParamName = GENERIC_NAME_PREFIX + String.valueOf(i + 1);
         // ensure not to overwrite parameter named with @Param
         if (!names.containsValue(genericParamName)) {
+          //把key为param+0,1,2,3.....,value值加入到param中
           param.put(genericParamName, args[entry.getKey()]);
         }
         i++;

@@ -1,5 +1,5 @@
 /**
- *    Copyright 2009-2017 the original author or authors.
+ *    Copyright 2009-2021 the original author or authors.
  *
  *    Licensed under the Apache License, Version 2.0 (the "License");
  *    you may not use this file except in compliance with the License.
@@ -26,6 +26,19 @@ public class PropertyTokenizer implements Iterator<PropertyTokenizer> {
   private String index;
   private final String children;
 
+  /*
+	例1: 参数: user[1].linkman.name
+        children=linkman.name
+        indexedName=user[1]
+        name=user
+        index=1
+    例2: 参数: user
+    	children=null
+    	indexedName=user
+    	name=user
+    	index=null
+    hasNext()判断是否有子属性，next()获取子属性。
+*/
   public PropertyTokenizer(String fullname) {
     int delim = fullname.indexOf('.');
     if (delim > -1) {

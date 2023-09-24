@@ -1,5 +1,5 @@
 /**
- *    Copyright 2009-2015 the original author or authors.
+ *    Copyright 2009-2021 the original author or authors.
  *
  *    Licensed under the Apache License, Version 2.0 (the "License");
  *    you may not use this file except in compliance with the License.
@@ -17,12 +17,11 @@ package org.apache.ibatis.cache.decorators;
 
 import java.util.LinkedHashMap;
 import java.util.Map;
-import java.util.concurrent.locks.ReadWriteLock;
 
 import org.apache.ibatis.cache.Cache;
 
 /**
- * Lru (least recently used) cache decorator
+ * Lru (least recently used) cache decorator.
  *
  * @author Clinton Begin
  */
@@ -48,9 +47,11 @@ public class LruCache implements Cache {
   }
 
   public void setSize(final int size) {
+    // 利用LinkedHashMap可实现LRU缓存
     keyMap = new LinkedHashMap<Object, Object>(size, .75F, true) {
       private static final long serialVersionUID = 4267176411845948333L;
 
+      //当put进新的值方法返回true时，便移除该map中最老的键和值。
       @Override
       protected boolean removeEldestEntry(Map.Entry<Object, Object> eldest) {
         boolean tooBig = size() > size;
@@ -68,6 +69,7 @@ public class LruCache implements Cache {
     cycleKeyList(key);
   }
 
+  //每次访问都会遍历一次key进行重新排序，将访问元素放到链表尾部。
   @Override
   public Object getObject(Object key) {
     keyMap.get(key); //touch
@@ -83,11 +85,6 @@ public class LruCache implements Cache {
   public void clear() {
     delegate.clear();
     keyMap.clear();
-  }
-
-  @Override
-  public ReadWriteLock getReadWriteLock() {
-    return null;
   }
 
   private void cycleKeyList(Object key) {

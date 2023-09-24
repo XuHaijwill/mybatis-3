@@ -1,5 +1,5 @@
 /**
- *    Copyright 2009-2017 the original author or authors.
+ *    Copyright 2009-2021 the original author or authors.
  *
  *    Licensed under the Apache License, Version 2.0 (the "License");
  *    you may not use this file except in compliance with the License.
@@ -55,7 +55,7 @@ public class CachingExecutor implements Executor {
   public void close(boolean forceRollback) {
     try {
       //issues #499, #524 and #573
-      if (forceRollback) { 
+      if (forceRollback) {
         tcm.rollback();
       } else {
         tcm.commit();
@@ -76,8 +76,22 @@ public class CachingExecutor implements Executor {
     return delegate.update(ms, parameterObject);
   }
 
+  /**
+   * 方法实现说明:通过我们的sql执行器对象执行sql
+   * @author:xsls
+   * @param ms 用于封装我们一个个的insert|delete|update|select 对象
+   * @param parameterObject:参数对象
+   * @param rowBounds :mybaits的逻辑分页对象 TODO？？？？？
+   * @param resultHandler:结果处理器对象
+   * @return:
+   * @exception:
+   * @date:2019/9/9 20:39
+   */
   @Override
   public <E> List<E> query(MappedStatement ms, Object parameterObject, RowBounds rowBounds, ResultHandler resultHandler) throws SQLException {
+    /**
+     * 通过参数对象解析我们的sql详细信息1339025938:1570540512:com.tuling.mapper.selectById:0:2147483647:select id,user_name,create_time from t_user where id=?:1:development
+     */
     BoundSql boundSql = ms.getBoundSql(parameterObject);
     CacheKey key = createCacheKey(ms, parameterObject, rowBounds, boundSql);
     return query(ms, parameterObject, rowBounds, resultHandler, key, boundSql);
@@ -92,21 +106,37 @@ public class CachingExecutor implements Executor {
   @Override
   public <E> List<E> query(MappedStatement ms, Object parameterObject, RowBounds rowBounds, ResultHandler resultHandler, CacheKey key, BoundSql boundSql)
       throws SQLException {
+    /**
+     * 判断我们我们的mapper中是否开启了二级缓存<cache></cache>
+     */
     Cache cache = ms.getCache();
+    /**
+     * 判断是否配置了<cache></cache>
+     */
     if (cache != null) {
+      //判断是否需要刷新缓存
       flushCacheIfRequired(ms);
       if (ms.isUseCache() && resultHandler == null) {
         ensureNoOutParams(ms, boundSql);
+        /**
+         * 先去二级缓存中获取
+         */
         @SuppressWarnings("unchecked")
         List<E> list = (List<E>) tcm.getObject(cache, key);
+        /**
+         * 二级缓存中没有获取到
+         */
         if (list == null) {
-          list = delegate.<E> query(ms, parameterObject, rowBounds, resultHandler, key, boundSql);
+          //通过查询数据库去查询
+          list = delegate.query(ms, parameterObject, rowBounds, resultHandler, key, boundSql);
+          //加入到二级缓存中
           tcm.putObject(cache, key, list); // issue #578 and #116
         }
         return list;
       }
     }
-    return delegate.<E> query(ms, parameterObject, rowBounds, resultHandler, key, boundSql);
+    //没有整合二级缓存,直接去查询
+    return delegate.query(ms, parameterObject, rowBounds, resultHandler, key, boundSql);
   }
 
   @Override
@@ -163,7 +193,7 @@ public class CachingExecutor implements Executor {
 
   private void flushCacheIfRequired(MappedStatement ms) {
     Cache cache = ms.getCache();
-    if (cache != null && ms.isFlushCacheRequired()) {      
+    if (cache != null && ms.isFlushCacheRequired()) {
       tcm.clear(cache);
     }
   }

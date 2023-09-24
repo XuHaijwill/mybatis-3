@@ -1,5 +1,5 @@
 /**
- *    Copyright 2009-2017 the original author or authors.
+ *    Copyright 2009-2021 the original author or authors.
  *
  *    Licensed under the Apache License, Version 2.0 (the "License");
  *    you may not use this file except in compliance with the License.
@@ -52,7 +52,9 @@ public class TrimSqlNode implements SqlNode {
   @Override
   public boolean apply(DynamicContext context) {
     FilteredDynamicContext filteredDynamicContext = new FilteredDynamicContext(context);
+    // 递归trim(where\set) 中的内容
     boolean result = contents.apply(filteredDynamicContext);
+    // 去除、追加前缀后缀
     filteredDynamicContext.applyAll();
     return result;
   }
@@ -60,7 +62,7 @@ public class TrimSqlNode implements SqlNode {
   private static List<String> parseOverrides(String overrides) {
     if (overrides != null) {
       final StringTokenizer parser = new StringTokenizer(overrides, "|", false);
-      final List<String> list = new ArrayList<String>(parser.countTokens());
+      final List<String> list = new ArrayList<>(parser.countTokens());
       while (parser.hasMoreTokens()) {
         list.add(parser.nextToken().toUpperCase(Locale.ENGLISH));
       }
@@ -69,6 +71,10 @@ public class TrimSqlNode implements SqlNode {
     return Collections.emptyList();
   }
 
+  /**
+   * 动态条件过滤文本
+   * 比如 where  会调用此对象， 将动态处理里面的if条件， 如果满足条件就将sql追加到sqlBuffer
+   */
   private class FilteredDynamicContext extends DynamicContext {
     private DynamicContext delegate;
     private boolean prefixApplied;
@@ -85,9 +91,17 @@ public class TrimSqlNode implements SqlNode {
 
     public void applyAll() {
       sqlBuffer = new StringBuilder(sqlBuffer.toString().trim());
-      String trimmedUppercaseSql = sqlBuffer.toString().toUpperCase(Locale.ENGLISH);
-      if (trimmedUppercaseSql.length() > 0) {
+      String trimmedUppercaseSql = sqlBuffer.toString().toUpperCase(Locale.ENGLISH); // 转换成大写
+      if (trimmedUppercaseSql.length() > 0) { // 如果trim(where、set)中有内容
+        /**
+         * 1. 处理prefixOverrides 前去除  如果<WHERE> prefixOverrides="and|or"
+         * 2. 处理prefix 前追加 如果<WHERE>  prefix=where  如果<SET>  prefix=set
+         */
         applyPrefix(sqlBuffer, trimmedUppercaseSql);
+        /**
+         * 1. 处理suffixOverrides 尾去除  如果<SET> suffixOverrides=","
+         * 2. 处理suffix   尾追加
+         */
         applySuffix(sqlBuffer, trimmedUppercaseSql);
       }
       delegate.appendSql(sqlBuffer.toString());
@@ -121,6 +135,7 @@ public class TrimSqlNode implements SqlNode {
     private void applyPrefix(StringBuilder sql, String trimmedUppercaseSql) {
       if (!prefixApplied) {
         prefixApplied = true;
+        //1.去除开头的AND或OR.
         if (prefixesToOverride != null) {
           for (String toRemove : prefixesToOverride) {
             if (trimmedUppercaseSql.startsWith(toRemove)) {
@@ -129,6 +144,7 @@ public class TrimSqlNode implements SqlNode {
             }
           }
         }
+        // 2. 加上前缀 where 、set
         if (prefix != null) {
           sql.insert(0, " ");
           sql.insert(0, prefix);

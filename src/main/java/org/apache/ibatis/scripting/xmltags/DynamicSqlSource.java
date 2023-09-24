@@ -1,5 +1,5 @@
 /**
- *    Copyright 2009-2017 the original author or authors.
+ *    Copyright 2009-2021 the original author or authors.
  *
  *    Licensed under the Apache License, Version 2.0 (the "License");
  *    you may not use this file except in compliance with the License.
@@ -14,8 +14,6 @@
  *    limitations under the License.
  */
 package org.apache.ibatis.scripting.xmltags;
-
-import java.util.Map;
 
 import org.apache.ibatis.builder.SqlSourceBuilder;
 import org.apache.ibatis.mapping.BoundSql;
@@ -35,17 +33,25 @@ public class DynamicSqlSource implements SqlSource {
     this.rootSqlNode = rootSqlNode;
   }
 
+  /**
+   * 这个方法主要做2件事：
+   * 1. 解析所有sqlNode  解析成一条完整sql语句
+   * 2. 将sql语句中的#{} 替换成问号， 并且把#{}中的参数解析成ParameterMapping （里面包含了typeHandler)
+   * @param parameterObject:参数对象
+   * @return
+   */
   @Override
   public BoundSql getBoundSql(Object parameterObject) {
     DynamicContext context = new DynamicContext(configuration, parameterObject);
+    // 1归 责任链 处理一个个SqlNode   编译出一个完整sql
     rootSqlNode.apply(context);
     SqlSourceBuilder sqlSourceParser = new SqlSourceBuilder(configuration);
+    // 2.接下来处理 处理sql中的#{...}
     Class<?> parameterType = parameterObject == null ? Object.class : parameterObject.getClass();
+    // 怎么处理呢？ 很简单， 就是拿到#{}中的内容 封装为parameterMapper，  替换成?
     SqlSource sqlSource = sqlSourceParser.parse(context.getSql(), parameterType, context.getBindings());
     BoundSql boundSql = sqlSource.getBoundSql(parameterObject);
-    for (Map.Entry<String, Object> entry : context.getBindings().entrySet()) {
-      boundSql.setAdditionalParameter(entry.getKey(), entry.getValue());
-    }
+    context.getBindings().forEach(boundSql::setAdditionalParameter);
     return boundSql;
   }
 

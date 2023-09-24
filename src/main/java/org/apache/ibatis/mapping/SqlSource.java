@@ -1,5 +1,5 @@
 /**
- *    Copyright 2009-2015 the original author or authors.
+ *    Copyright 2009-2021 the original author or authors.
  *
  *    Licensed under the Apache License, Version 2.0 (the "License");
  *    you may not use this file except in compliance with the License.
@@ -16,13 +16,21 @@
 package org.apache.ibatis.mapping;
 
 /**
- * Represents the content of a mapped statement read from an XML file or an annotation. 
+ * Represents the content of a mapped statement read from an XML file or an annotation.
  * It creates the SQL that will be passed to the database out of the input parameter received from the user.
  *
  * @author Clinton Begin
  */
 public interface SqlSource {
 
+  /**
+   * 方法实现说明:解析我们原生的sql
+   * @author:xsls
+   * @param parameterObject:参数对象
+   * @return:BoundSql
+   * @exception:
+   * @date:2019/9/6 15:29
+   */
   BoundSql getBoundSql(Object parameterObject);
 
 }

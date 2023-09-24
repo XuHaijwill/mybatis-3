@@ -1,5 +1,5 @@
 /**
- *    Copyright 2009-2016 the original author or authors.
+ *    Copyright 2009-2021 the original author or authors.
  *
  *    Licensed under the Apache License, Version 2.0 (the "License");
  *    you may not use this file except in compliance with the License.
@@ -67,8 +67,8 @@ public class ResultMapping {
     public Builder(Configuration configuration, String property) {
       resultMapping.configuration = configuration;
       resultMapping.property = property;
-      resultMapping.flags = new ArrayList<ResultFlag>();
-      resultMapping.composites = new ArrayList<ResultMapping>();
+      resultMapping.flags = new ArrayList<>();
+      resultMapping.composites = new ArrayList<>();
       resultMapping.lazy = configuration.isLazyLoadingEnabled();
     }
 
@@ -131,11 +131,12 @@ public class ResultMapping {
       resultMapping.lazy = lazy;
       return this;
     }
-    
+
     public ResultMapping build() {
       // lock down collections
       resultMapping.flags = Collections.unmodifiableList(resultMapping.flags);
       resultMapping.composites = Collections.unmodifiableList(resultMapping.composites);
+      // 假如没有指定typeHandler属性，那么会在这里进行解析TypeHandler  根据 javaType和jdbcType就可以找到
       resolveTypeHandler();
       validate();
       return resultMapping;
@@ -168,7 +169,7 @@ public class ResultMapping {
         }
       }
     }
-    
+
     private void resolveTypeHandler() {
       if (resultMapping.typeHandler == null && resultMapping.javaType != null) {
         Configuration configuration = resultMapping.configuration;
@@ -250,7 +251,7 @@ public class ResultMapping {
   public void setLazy(boolean lazy) {
     this.lazy = lazy;
   }
-  
+
   @Override
   public boolean equals(Object o) {
     if (this == o) {
